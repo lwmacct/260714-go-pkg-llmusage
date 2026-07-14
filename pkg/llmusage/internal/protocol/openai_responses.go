@@ -21,6 +21,7 @@ func newOpenAIResponsesJSON(limits Limits) *openAIResponsesJSON {
 func (d *openAIResponsesJSON) Feed(data []byte) error { return d.scanner.Write(data) }
 
 func (d *openAIResponsesJSON) Finish() ([]Result, error) {
+	defer d.scanner.Release()
 	captured, err := d.scanner.Finish()
 	if err != nil {
 		return nil, err
@@ -49,11 +50,13 @@ func (d *openAIResponsesSSE) FeedEventData(data []byte) error {
 		d.response = newScanner([]string{"response"}, openAIResponsesFields, d.limits)
 		d.typeName = newScanner(nil, []string{"type"}, d.limits)
 	}
-	if d.respErr == nil {
-		d.respErr = d.response.Write(data)
-	}
 	if d.typeErr == nil {
 		d.typeErr = d.typeName.Write(data)
+	}
+	// Preserve the event signature even when retained response fields exhaust
+	// the shared budget later in the same payload.
+	if d.respErr == nil {
+		d.respErr = d.response.Write(data)
 	}
 	return nil
 }
@@ -65,6 +68,8 @@ func (d *openAIResponsesSSE) FinishEvent(event Event) ([]Result, error) {
 	if response == nil {
 		return nil, nil
 	}
+	defer response.Release()
+	defer typeScanner.Release()
 	typeName := rawString(typeScanner.Captured("type"))
 	if typeErr == nil {
 		captured, err := typeScanner.Finish()

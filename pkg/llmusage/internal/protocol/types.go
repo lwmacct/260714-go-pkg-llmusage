@@ -1,6 +1,10 @@
 package protocol
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/lwmacct/260714-go-pkg-llmusage/pkg/llmusage/internal/jsonscan"
+)
 
 type Kind string
 
@@ -15,6 +19,14 @@ const (
 type Limits struct {
 	MaxResultBytes  int
 	MaxNestingDepth int
+	budget          *jsonscan.Budget
+}
+
+func (l Limits) withBudget() Limits {
+	if l.budget == nil {
+		l.budget = jsonscan.NewBudget(l.MaxResultBytes)
+	}
+	return l
 }
 
 type Event struct {

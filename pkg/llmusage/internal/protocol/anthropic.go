@@ -13,6 +13,7 @@ func newAnthropicJSON(limits Limits) *anthropicJSON {
 }
 func (d *anthropicJSON) Feed(data []byte) error { return d.scanner.Write(data) }
 func (d *anthropicJSON) Finish() ([]Result, error) {
+	defer d.scanner.Release()
 	captured, err := d.scanner.Finish()
 	if err != nil {
 		return nil, err
@@ -59,6 +60,8 @@ func (d *anthropicSSE) FinishEvent(event Event) ([]Result, error) {
 	if scanner == nil {
 		return nil, nil
 	}
+	defer scanner.Release()
+	defer message.Release()
 	typeName := rawString(scanner.Captured("type"))
 	var captured jsonscan.Result
 	if eventErr == nil {

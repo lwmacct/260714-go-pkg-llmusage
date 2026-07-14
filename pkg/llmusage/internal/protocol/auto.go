@@ -17,6 +17,7 @@ func newAutoJSON(limits Limits) *autoJSON {
 }
 func (d *autoJSON) Feed(data []byte) error { return d.scanner.Write(data) }
 func (d *autoJSON) Finish() ([]Result, error) {
+	defer d.scanner.Release()
 	captured, err := d.scanner.Finish()
 	if err != nil {
 		return nil, err
@@ -109,6 +110,9 @@ func (d *autoSSE) FinishEvent(event Event) ([]Result, error) {
 	if root == nil {
 		return nil, nil
 	}
+	defer root.Release()
+	defer response.Release()
+	defer message.Release()
 
 	fields := rootFields(root, rootErr)
 	typeName := rawString(fields["type"])

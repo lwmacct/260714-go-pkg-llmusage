@@ -19,6 +19,8 @@ pkg/llmusage public facade
 - `internal/sse`：只实现 SSE framing，不理解任何 LLM event 或 `[DONE]`。
 - `internal/jsonscan`：增量验证 JSON，并只保留调用方选择的字段。
 
+同一协议 decoder 创建的多个 `jsonscan.Scanner` 共享 retained-byte budget，避免 auto detector 或并行路径各自获得一份完整上限。scanner 完成并复制出 result/state 后释放预算；未选择的正文只验证和跳过，不消耗 retained budget。SSE metadata 使用独立的逐 event 累计预算，`data:` 字段始终流式传递。
+
 内部协议 decoder 按 framing 分为 `JSONDecoder` 与 `SSEDecoder`。显式协议 decoder 不承担识别职责；只有 auto detector 判断 wire contract，因此协议解析错误不会被误当成识别信号。
 
 ## 自动识别

@@ -1,7 +1,9 @@
 package sse
 
 import (
+	"errors"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -76,9 +78,21 @@ func TestParserEmptyColonFieldsClearEventTypeAndLastID(t *testing.T) {
 }
 
 func TestParserBoundsMetadata(t *testing.T) {
-	parser := NewParser(3, nil, nil)
-	if err := parser.Feed([]byte("event: long\n")); err != ErrLimit {
+	parser := NewParser(10, nil, nil)
+	if err := parser.Feed([]byte("event: abcde\n")); err != nil {
+		t.Fatalf("exact metadata limit should pass, got %v", err)
+	}
+	parser = NewParser(9, nil, nil)
+	if err := parser.Feed([]byte("event: abcde\n")); !errors.Is(err, ErrLimit) {
 		t.Fatalf("expected metadata limit, got %v", err)
+	}
+}
+
+func TestParserDoesNotCountDataAsMetadata(t *testing.T) {
+	data := strings.Repeat("x", 1<<20)
+	parser := NewParser(4, func([]byte) error { return nil }, func(Event) error { return nil })
+	if err := parser.Feed([]byte("data: " + data + "\n\n")); err != nil {
+		t.Fatalf("large data must not consume metadata budget: %v", err)
 	}
 }
 

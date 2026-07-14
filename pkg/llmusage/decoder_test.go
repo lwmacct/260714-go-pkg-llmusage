@@ -107,6 +107,19 @@ func TestDecoderLifecycleAndOptions(t *testing.T) {
 	}
 }
 
+func TestDefaultResourceLimits(t *testing.T) {
+	options, err := normalizeOptions(Options{Protocol: ProtocolOpenAIResponses, Format: FormatSSE})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if options.MaxSSEMetadataBytes != 64<<10 || options.MaxResultBytes != 64<<10 || options.MaxNestingDepth != 128 {
+		t.Fatalf("unexpected defaults: %#v", options)
+	}
+	if _, err := NewDecoder(Options{Protocol: ProtocolOpenAIResponses, Format: FormatSSE, MaxSSEMetadataBytes: -1}); !errors.Is(err, ErrInvalidOptions) {
+		t.Fatalf("expected invalid metadata limit, got %v", err)
+	}
+}
+
 func TestParseDerivesMissingTotalAndSkipsNullUsage(t *testing.T) {
 	data := []byte(`{"id":"resp_derived","model":"model","usage":{"input_tokens":2,"output_tokens":3}}`)
 	results, err := Parse(data, Options{Protocol: ProtocolOpenAIResponses, Format: FormatJSON})
@@ -119,6 +132,18 @@ func TestParseDerivesMissingTotalAndSkipsNullUsage(t *testing.T) {
 	results, err = Parse([]byte(`{"id":"resp_null","usage":null}`), Options{Protocol: ProtocolOpenAIResponses, Format: FormatJSON})
 	if err != nil || len(results) != 0 {
 		t.Fatalf("null usage should be skipped: results=%#v err=%v", results, err)
+	}
+}
+
+func TestParseMillionTokenUsage(t *testing.T) {
+	data := []byte(`{"object":"response","usage":{"input_tokens":1000000,"output_tokens":250000,"total_tokens":1250000}}`)
+	results, err := Parse(data, Options{Protocol: ProtocolOpenAIResponses, Format: FormatJSON})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := Usage{InputTokens: 1000000, OutputTokens: 250000, TotalTokens: 1250000}
+	if len(results) != 1 || results[0].Usage != want {
+		t.Fatalf("unexpected usage: %#v", results)
 	}
 }
 
@@ -180,9 +205,18 @@ func TestDecoderRecognizesCompletedTypeAfterResponseLimit(t *testing.T) {
 	}
 	stream := append([]byte("data: {\"response\":{\"usage\":{\"unknown\":\""), large...)
 	stream = append(stream, []byte("\"}},\"type\":\"response.completed\"}\n\n")...)
-	_, err := Parse(stream, Options{Protocol: ProtocolOpenAIResponses, Format: FormatSSE, MaxFrameBytes: 1024, MaxResultBytes: 64})
+	_, err := Parse(stream, Options{Protocol: ProtocolOpenAIResponses, Format: FormatSSE, MaxSSEMetadataBytes: 1024, MaxResultBytes: 64})
 	if !errors.Is(err, ErrLimitExceeded) {
 		t.Fatalf("completed type after oversized usage should preserve error, got %v", err)
+	}
+}
+
+func TestDecoderSharesResultBudgetAcrossSSEScanners(t *testing.T) {
+	stream := []byte("event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"usage\":{\"input_tokens\":1}}}\n\n")
+	retainedBytes := len(`"response.completed"`) + len(`{"input_tokens":1}`)
+	_, err := Parse(stream, Options{Protocol: ProtocolOpenAIResponses, Format: FormatSSE, MaxResultBytes: retainedBytes - 1})
+	if !errors.Is(err, ErrLimitExceeded) {
+		t.Fatalf("expected shared result budget limit, got %v", err)
 	}
 }
 
@@ -252,7 +286,7 @@ func FuzzDecoder(f *testing.F) {
 		if len(data) > 1<<16 {
 			t.Skip()
 		}
-		decoder, err := NewDecoder(Options{Protocol: ProtocolOpenAIResponses, Format: FormatSSE, MaxFrameBytes: 4096, MaxResultBytes: 4096})
+		decoder, err := NewDecoder(Options{Protocol: ProtocolOpenAIResponses, Format: FormatSSE, MaxSSEMetadataBytes: 4096, MaxResultBytes: 4096})
 		if err != nil {
 			t.Fatal(err)
 		}

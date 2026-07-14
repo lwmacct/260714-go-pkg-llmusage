@@ -109,11 +109,13 @@ cache read、cache write 和 reasoning 是 input/output 的明细或协议相关
 
 | Option | 默认值 | 含义 |
 | --- | ---: | --- |
-| `MaxFrameBytes` | 1 MiB | SSE metadata 与事件识别字段上限 |
-| `MaxResultBytes` | 64 KiB | 单个 result 保留的 id/model/raw usage 总量上限 |
+| `MaxSSEMetadataBytes` | 64 KiB | 单个 SSE event 累计 metadata 上限，不限制 `data:` 正文 |
+| `MaxResultBytes` | 64 KiB | decoder 保留的协议识别字段、id/model/raw usage 共享上限 |
 | `MaxNestingDepth` | 128 | JSON 最大嵌套深度，包含被跳过字段 |
 
 设为 0 使用默认值；负值无效。超过限制返回 `ErrLimitExceeded`，decoder 随后保持 terminal error。
+
+这些限制与模型 context window 相互独立。百万 token context 只会增大 usage counter 的数值；响应正文仍被流式跳过，不计入 `MaxResultBytes`。`MaxResultBytes` 是同一 decoder 内协议 scanner 共享的当前保留预算，而不是累计处理字节数。
 
 ## 错误处理
 

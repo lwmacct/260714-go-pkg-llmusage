@@ -8,6 +8,7 @@
 
 - `NewDecoder`、`Feed`、`Finish` 与 `Parse` 公共 API。
 - JSON/SSE framing、选择性 JSON scanner、资源上限与结构化错误。
+- SSE metadata 逐 event 限制，协议 scanner 共享 retained-result budget；限制不随模型 context window 放大。
 - 规范化 usage、`TotalSource` 和完整/合并后的 `RawUsage`。
 - decoder 生命周期、调用方 buffer 复用和非并发语义。
 - 公共 facade、decoder engine、protocol state machine、SSE framing 和 JSON scanner 保持单向内部依赖。

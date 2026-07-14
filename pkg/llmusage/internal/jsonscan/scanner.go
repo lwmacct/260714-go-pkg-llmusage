@@ -17,6 +17,37 @@ type Options struct {
 	Fields     []string
 	MaxBytes   int
 	MaxDepth   int
+	Budget     *Budget
+}
+
+// Budget bounds captured bytes shared by multiple scanners. It is not safe
+// for concurrent use.
+type Budget struct {
+	max  int
+	used int
+}
+
+func NewBudget(max int) *Budget { return &Budget{max: max} }
+
+func (b *Budget) reserve(bytes int) bool {
+	if b == nil || b.max <= 0 {
+		return true
+	}
+	if bytes < 0 || b.used > b.max-bytes {
+		return false
+	}
+	b.used += bytes
+	return true
+}
+
+func (b *Budget) release(bytes int) {
+	if b == nil {
+		return
+	}
+	b.used -= bytes
+	if b.used < 0 {
+		b.used = 0
+	}
 }
 
 type Result struct {
@@ -49,13 +80,14 @@ type jsonContext struct {
 type Scanner struct {
 	stack []jsonContext
 
-	inString      bool
-	escape        bool
-	unicodeDigits int
-	captureString bool
-	stringBuf     []byte
-	inPrimitive   bool
-	primitive     primitiveState
+	inString       bool
+	escape         bool
+	unicodeDigits  int
+	captureString  bool
+	stringBuf      []byte
+	stringReserved int
+	inPrimitive    bool
+	primitive      primitiveState
 
 	objectPath []string
 	fields     map[string]struct{}
@@ -64,6 +96,8 @@ type Scanner struct {
 	maxBytes   int
 	maxDepth   int
 	usedBytes  int
+	budget     *Budget
+	reserved   int
 	err        error
 	rootSeen   bool
 	rootDone   bool
@@ -91,7 +125,18 @@ func NewScanner(options Options) *Scanner {
 	for _, field := range options.Fields {
 		fields[field] = struct{}{}
 	}
-	return &Scanner{objectPath: path, fields: fields, maxBytes: options.MaxBytes, maxDepth: options.MaxDepth}
+	return &Scanner{objectPath: path, fields: fields, maxBytes: options.MaxBytes, maxDepth: options.MaxDepth, budget: options.Budget}
+}
+
+// Release removes this scanner's captured bytes from its shared budget. The
+// scanner must not be used afterward.
+func (s *Scanner) Release() {
+	if s == nil {
+		return
+	}
+	s.budget.release(s.reserved + s.stringReserved)
+	s.reserved = 0
+	s.stringReserved = 0
 }
 
 func (s *Scanner) Write(data []byte) error {
@@ -267,7 +312,7 @@ func (s *Scanner) startString() {
 
 func (s *Scanner) writeStringByte(b byte) error {
 	if s.captureString {
-		if err := s.appendLimited(&s.stringBuf, b); err != nil {
+		if err := s.appendString(b); err != nil {
 			return err
 		}
 	}
@@ -304,6 +349,8 @@ func (s *Scanner) writeStringByte(b byte) error {
 	captureString := s.captureString
 	s.inString = false
 	s.captureString = false
+	s.budget.release(s.stringReserved)
+	s.stringReserved = 0
 	ctx := s.top()
 	if ctx == nil {
 		s.rootDone = true
@@ -447,7 +494,7 @@ func (s *Scanner) startValueCapture(first byte) error {
 	s.valueEscape = false
 	s.valuePrimitive = false
 	s.valueBuf = s.valueBuf[:0]
-	if err := s.appendLimited(&s.valueBuf, first); err != nil {
+	if err := s.appendValue(first); err != nil {
 		return err
 	}
 	switch first {
@@ -472,9 +519,9 @@ func (s *Scanner) writeValueByte(b byte) (bool, error) {
 			}
 			return true, nil
 		}
-		return false, s.appendLimited(&s.valueBuf, b)
+		return false, s.appendValue(b)
 	}
-	if err := s.appendLimited(&s.valueBuf, b); err != nil {
+	if err := s.appendValue(b); err != nil {
 		return false, err
 	}
 	if s.valueInString {
@@ -531,11 +578,27 @@ func (s *Scanner) finishValueCapture() error {
 	return nil
 }
 
-func (s *Scanner) appendLimited(dst *[]byte, b byte) error {
-	if s.maxBytes > 0 && s.usedBytes+len(*dst)+1 > s.maxBytes {
+func (s *Scanner) appendString(b byte) error {
+	if s.maxBytes > 0 && s.usedBytes+len(s.stringBuf)+1 > s.maxBytes {
 		return ErrLimit
 	}
-	*dst = append(*dst, b)
+	if !s.budget.reserve(1) {
+		return ErrLimit
+	}
+	s.stringReserved++
+	s.stringBuf = append(s.stringBuf, b)
+	return nil
+}
+
+func (s *Scanner) appendValue(b byte) error {
+	if s.maxBytes > 0 && s.usedBytes+len(s.valueBuf)+1 > s.maxBytes {
+		return ErrLimit
+	}
+	if !s.budget.reserve(1) {
+		return ErrLimit
+	}
+	s.reserved++
+	s.valueBuf = append(s.valueBuf, b)
 	return nil
 }
 

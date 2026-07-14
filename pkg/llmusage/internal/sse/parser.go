@@ -24,19 +24,20 @@ type Parser struct {
 	onData           func([]byte) error
 	onEvent          func(Event) error
 
-	field     []byte
-	value     []byte
-	state     lineState
-	skipLF    bool
-	dataLines int
-	event     Event
-	lastID    string
-	finished  bool
-	offset    int64
-	sequence  uint64
-	bom       []byte
-	bomDone   bool
-	dataBuf   []byte
+	field         []byte
+	value         []byte
+	state         lineState
+	skipLF        bool
+	dataLines     int
+	metadataBytes int
+	event         Event
+	lastID        string
+	finished      bool
+	offset        int64
+	sequence      uint64
+	bom           []byte
+	bomDone       bool
+	dataBuf       []byte
 }
 
 type lineState uint8
@@ -279,13 +280,15 @@ func (p *Parser) dispatch() error {
 func (p *Parser) resetEvent() {
 	p.event = Event{}
 	p.dataLines = 0
+	p.metadataBytes = 0
 }
 
 func (p *Parser) appendMetadata(dst *[]byte, b byte) error {
-	if p.maxMetadataBytes > 0 && len(*dst)+1 > p.maxMetadataBytes {
+	if p.maxMetadataBytes > 0 && p.metadataBytes+1 > p.maxMetadataBytes {
 		return ErrLimit
 	}
 	*dst = append(*dst, b)
+	p.metadataBytes++
 	return nil
 }
 

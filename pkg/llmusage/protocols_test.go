@@ -286,7 +286,7 @@ func FuzzProtocolAuto(f *testing.F) {
 		if formatByte%2 == 1 {
 			format = FormatSSE
 		}
-		decoder, err := NewDecoder(Options{Protocol: ProtocolAuto, Format: format, MaxFrameBytes: 4096, MaxResultBytes: 4096})
+		decoder, err := NewDecoder(Options{Protocol: ProtocolAuto, Format: format, MaxSSEMetadataBytes: 4096, MaxResultBytes: 4096})
 		if err != nil {
 			t.Fatal(err)
 		}

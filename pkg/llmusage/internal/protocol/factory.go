@@ -5,6 +5,7 @@ import "fmt"
 var ErrUnsupported = fmt.Errorf("unsupported protocol payload")
 
 func NewJSON(kind Kind, limits Limits) (JSONDecoder, error) {
+	limits = limits.withBudget()
 	switch kind {
 	case Auto:
 		return newAutoJSON(limits), nil
@@ -22,6 +23,7 @@ func NewJSON(kind Kind, limits Limits) (JSONDecoder, error) {
 }
 
 func NewSSE(kind Kind, limits Limits) (SSEDecoder, error) {
+	limits = limits.withBudget()
 	switch kind {
 	case Auto:
 		return newAutoSSE(limits), nil

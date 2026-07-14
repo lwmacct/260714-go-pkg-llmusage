@@ -17,10 +17,10 @@ const (
 )
 
 type Options struct {
-	Protocol      protocol.Kind
-	Format        Format
-	MaxFrameBytes int
-	Limits        protocol.Limits
+	Protocol            protocol.Kind
+	Format              Format
+	MaxSSEMetadataBytes int
+	Limits              protocol.Limits
 }
 
 type Decoder struct {
@@ -43,7 +43,7 @@ func New(options Options) (*Decoder, error) {
 	case SSE:
 		d.stream, err = protocol.NewSSE(options.Protocol, options.Limits)
 		if err == nil {
-			d.sse = sse.NewParser(options.MaxFrameBytes, d.feedEventData, d.finishEvent)
+			d.sse = sse.NewParser(options.MaxSSEMetadataBytes, d.feedEventData, d.finishEvent)
 		}
 	default:
 		err = protocol.ErrUnsupported

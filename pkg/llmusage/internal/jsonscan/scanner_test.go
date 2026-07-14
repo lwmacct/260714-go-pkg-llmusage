@@ -3,6 +3,7 @@ package jsonscan
 import (
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -94,15 +95,80 @@ func TestScannerBoundsNestingDepth(t *testing.T) {
 	}
 }
 
-func TestScannerSkipsLargeUnselectedValue(t *testing.T) {
-	large := make([]byte, 8<<20)
-	for index := range large {
-		large[index] = 'x'
+func TestScannerNestingDepthBoundary(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		arrays  int
+		wantErr bool
+	}{
+		{name: "depth 128", arrays: 127},
+		{name: "depth 129", arrays: 128, wantErr: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			raw := `{"skip":` + strings.Repeat("[", test.arrays) + `0` + strings.Repeat("]", test.arrays) + `,"usage":{"total":3}}`
+			scanner := NewScanner(Options{Fields: []string{"usage"}, MaxBytes: 1024, MaxDepth: 128})
+			err := scanner.Write([]byte(raw))
+			if test.wantErr && !errors.Is(err, ErrLimit) {
+				t.Fatalf("expected depth limit, got %v", err)
+			}
+			if !test.wantErr {
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := scanner.Finish(); err != nil {
+					t.Fatal(err)
+				}
+			}
+		})
 	}
-	raw := append([]byte(`{"output":"`), large...)
-	raw = append(raw, []byte(`","usage":{"total":3}}`)...)
+}
+
+func TestScannerSharedBudget(t *testing.T) {
+	budget := NewBudget(10)
+	first := NewScanner(Options{Fields: []string{"a"}, MaxBytes: 10, Budget: budget})
+	second := NewScanner(Options{Fields: []string{"b"}, MaxBytes: 10, Budget: budget})
+	if err := first.Write([]byte(`{"a":"1234"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := second.Write([]byte(`{"b":"5678"}`)); !errors.Is(err, ErrLimit) {
+		t.Fatalf("expected shared budget limit, got %v", err)
+	}
+	first.Release()
+	third := NewScanner(Options{Fields: []string{"c"}, MaxBytes: 10, Budget: budget})
+	if err := third.Write([]byte(`{"c":"9012"}`)); err != nil {
+		t.Fatalf("released budget should be reusable: %v", err)
+	}
+}
+
+func TestScannerSharedBudgetIncludesKeys(t *testing.T) {
+	budget := NewBudget(8)
+	first := NewScanner(Options{Fields: []string{"usage"}, MaxBytes: 64, Budget: budget})
+	second := NewScanner(Options{Fields: []string{"usage"}, MaxBytes: 64, Budget: budget})
+	if err := first.Write([]byte(`{"abcdefgh`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := second.Write([]byte(`{"x`)); !errors.Is(err, ErrLimit) {
+		t.Fatalf("expected shared key budget limit, got %v", err)
+	}
+	first.Release()
+	third := NewScanner(Options{Fields: []string{"usage"}, MaxBytes: 64, Budget: budget})
+	if err := third.Write([]byte(`{"x`)); err != nil {
+		t.Fatalf("released key budget should be reusable: %v", err)
+	}
+}
+
+func TestScannerSkipsLargeUnselectedValue(t *testing.T) {
 	scanner := NewScanner(Options{Fields: []string{"usage"}, MaxBytes: 64})
-	if err := scanner.Write(raw); err != nil {
+	if err := scanner.Write([]byte(`{"output":"`)); err != nil {
+		t.Fatal(err)
+	}
+	chunk := []byte(strings.Repeat("x", 64<<10))
+	for range 1024 {
+		if err := scanner.Write(chunk); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := scanner.Write([]byte(`","usage":{"total":3}}`)); err != nil {
 		t.Fatal(err)
 	}
 	result, err := scanner.Finish()

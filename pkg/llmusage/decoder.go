@@ -25,10 +25,10 @@ func NewDecoder(options Options) (*Decoder, error) {
 		return nil, err
 	}
 	core, err := engine.New(engine.Options{
-		Protocol:      protocol.Kind(normalized.Protocol),
-		Format:        engine.Format(normalized.Format),
-		MaxFrameBytes: normalized.MaxFrameBytes,
-		Limits:        protocol.Limits{MaxResultBytes: normalized.MaxResultBytes, MaxNestingDepth: normalized.MaxNestingDepth},
+		Protocol:            protocol.Kind(normalized.Protocol),
+		Format:              engine.Format(normalized.Format),
+		MaxSSEMetadataBytes: normalized.MaxSSEMetadataBytes,
+		Limits:              protocol.Limits{MaxResultBytes: normalized.MaxResultBytes, MaxNestingDepth: normalized.MaxNestingDepth},
 	})
 	if err != nil {
 		return nil, &ParseError{Protocol: normalized.Protocol, Format: normalized.Format, Stage: "options", Err: mapEngineError(err)}

@@ -15,6 +15,7 @@ func newGoogleJSON(limits Limits) *googleJSON {
 }
 func (d *googleJSON) Feed(data []byte) error { return d.scanner.Write(data) }
 func (d *googleJSON) Finish() ([]Result, error) {
+	defer d.scanner.Release()
 	captured, err := d.scanner.Finish()
 	if err != nil {
 		return nil, err
@@ -53,8 +54,12 @@ func (d *googleSSE) FinishEvent(event Event) ([]Result, error) {
 	scanner, eventErr := d.event, d.eventErr
 	d.event, d.eventErr = nil, nil
 	if scanner == nil || event.Type != "message" {
+		if scanner != nil {
+			scanner.Release()
+		}
 		return nil, nil
 	}
+	defer scanner.Release()
 	if eventErr != nil {
 		if len(scanner.Captured("usageMetadata")) > 0 {
 			return nil, eventErr

@@ -15,6 +15,7 @@ func newOpenAIChatJSON(limits Limits) *openAIChatJSON {
 }
 func (d *openAIChatJSON) Feed(data []byte) error { return d.scanner.Write(data) }
 func (d *openAIChatJSON) Finish() ([]Result, error) {
+	defer d.scanner.Release()
 	captured, err := d.scanner.Finish()
 	if err != nil {
 		return nil, err
@@ -79,6 +80,7 @@ func (d *openAIChatSSE) FinishEvent(event Event) ([]Result, error) {
 	if scanner == nil {
 		return nil, nil
 	}
+	defer scanner.Release()
 	if event.Type != "message" {
 		return nil, nil
 	}

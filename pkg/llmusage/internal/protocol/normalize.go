@@ -15,6 +15,7 @@ func newScanner(path, fields []string, limits Limits) *jsonscan.Scanner {
 		Fields:     fields,
 		MaxBytes:   limits.MaxResultBytes,
 		MaxDepth:   limits.MaxNestingDepth,
+		Budget:     limits.budget,
 	})
 }
 

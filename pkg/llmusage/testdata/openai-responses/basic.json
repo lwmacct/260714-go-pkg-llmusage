@@ -1,0 +1,20 @@
+{
+  "id": "resp_basic",
+  "object": "response",
+  "model": "gpt-5.4",
+  "output": [{"type": "message", "content": [{"type": "output_text", "text": "ignored"}]}],
+  "usage": {
+    "input_tokens": 81,
+    "input_tokens_details": {
+      "cached_tokens": 32,
+      "cache_write_tokens": 7,
+      "future_detail": 9
+    },
+    "output_tokens": 1035,
+    "output_tokens_details": {
+      "reasoning_tokens": 832
+    },
+    "total_tokens": 1116,
+    "future_usage": {"requests": 1}
+  }
+}

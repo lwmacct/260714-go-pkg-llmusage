@@ -1,0 +1,8 @@
+: heartbeat
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","delta":"ignored"}
+
+event: response.completed
+data: {"type":"response.completed","response":{"id":"resp_stream","model":"gpt-5.4","output":[{"type":"message","content":[{"type":"output_text","text":"ignored"}]}],"usage":{"input_tokens":37,"input_tokens_details":{"cached_tokens":11,"cache_write_tokens":3,"future_detail":true},"output_tokens":19,"output_tokens_details":{"reasoning_tokens":8},"total_tokens":56,"future_usage":{"ok":true}}}}
+

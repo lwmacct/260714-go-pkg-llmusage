@@ -230,6 +230,42 @@ func TestProtocolAutoRejectsAmbiguousJSON(t *testing.T) {
 	}
 }
 
+func TestProtocolAutoIgnoresForeignInvalidUsage(t *testing.T) {
+	data := []byte(`{"object":"chat.completion","usage":{"prompt_tokens":2,"completion_tokens":3,"total_tokens":5,"input_tokens":-1}}`)
+	results, err := Parse(data, Options{Protocol: ProtocolAuto, Format: FormatJSON})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 1 || results[0].Protocol != ProtocolOpenAIChatCompletions || results[0].Usage.TotalTokens != 5 {
+		t.Fatalf("unexpected result: %#v", results)
+	}
+}
+
+func TestProtocolAutoDoesNotSelectAnthropicFromWeakEvents(t *testing.T) {
+	stream := []byte("event: ping\ndata: {\"type\":\"ping\"}\n\n" +
+		"data: {\"id\":\"chatcmpl_auto\",\"object\":\"chat.completion.chunk\",\"model\":\"gpt-5.4\",\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":2,\"total_tokens\":3}}\n\n")
+	results, err := Parse(stream, Options{Protocol: ProtocolAuto, Format: FormatSSE})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 1 || results[0].Protocol != ProtocolOpenAIChatCompletions {
+		t.Fatalf("unexpected result: %#v", results)
+	}
+}
+
+func TestDoneIsProtocolSpecific(t *testing.T) {
+	stream := []byte("event: future.event\ndata: [DONE]\n\n" +
+		"event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"m\",\"model\":\"c\",\"usage\":{\"input_tokens\":1}}}\n\n" +
+		"event: message_delta\ndata: {\"type\":\"message_delta\",\"usage\":{\"output_tokens\":2}}\n\n")
+	results, err := Parse(stream, Options{Protocol: ProtocolAnthropicMessages, Format: FormatSSE})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 1 || results[0].Usage.OutputTokens != 2 {
+		t.Fatalf("unexpected result: %#v", results)
+	}
+}
+
 func TestMergedAnthropicUsageHonorsResultLimit(t *testing.T) {
 	stream := []byte("event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"m\",\"model\":\"c\",\"usage\":{\"input_tokens\":1}}}\n\n" +
 		"event: message_delta\ndata: {\"type\":\"message_delta\",\"usage\":{\"output_tokens\":2,\"extension\":\"abcdefghijklmnopqrstuvwxyz\"}}\n\n")

@@ -1,4 +1,4 @@
-package jsoncapture
+package jsonscan
 
 import (
 	"errors"

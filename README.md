@@ -137,7 +137,7 @@ go vet ./...
 
 测试包含所有 protocol fixture 的逐字节增量切分、未知字段、累计快照、资源限制、buffer 复用、fuzz target 和大型 SSE benchmark。测试不访问网络；协议更新通过官方资料与新增脱敏 fixture 驱动。
 
-实施状态与持续加固项见 [`docs/roadmap.md`](docs/roadmap.md)。
+内部依赖与协议扩展规则见 [`docs/architecture.md`](docs/architecture.md)，实施状态与持续加固项见 [`docs/roadmap.md`](docs/roadmap.md)。
 
 ## 官方资料基线
 

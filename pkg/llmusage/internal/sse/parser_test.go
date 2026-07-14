@@ -1,4 +1,4 @@
-package framing
+package sse
 
 import (
 	"reflect"

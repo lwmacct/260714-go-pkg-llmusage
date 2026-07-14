@@ -10,6 +10,7 @@
 - JSON/SSE framing、选择性 JSON scanner、资源上限与结构化错误。
 - 规范化 usage、`TotalSource` 和完整/合并后的 `RawUsage`。
 - decoder 生命周期、调用方 buffer 复用和非并发语义。
+- 公共 facade、decoder engine、protocol state machine、SSE framing 和 JSON scanner 保持单向内部依赖。
 
 ### OpenAI Responses
 
@@ -45,6 +46,7 @@
 - `ProtocolAuto` 覆盖所有内置 JSON/SSE protocol。
 - 只识别 wire contract，不推断 provider。
 - 未知或不能唯一识别的 payload 返回 `ErrUnsupported`。
+- JSON 使用一次选择性扫描；SSE 识别后只保留唯一协议状态机，不向所有完整 decoder 广播 payload。
 
 ## 持续加固
 

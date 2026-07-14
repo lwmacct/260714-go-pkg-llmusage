@@ -278,7 +278,7 @@ func BenchmarkDecoderOpenAIResponsesSSELargeOutput(b *testing.B) {
 	b.ReportAllocs()
 	b.SetBytes(int64(len(stream)))
 	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		results, err := Parse(stream, Options{Protocol: ProtocolOpenAIResponses, Format: FormatSSE})
 		if err != nil || len(results) != 1 {
 			b.Fatalf("results=%d err=%v", len(results), err)

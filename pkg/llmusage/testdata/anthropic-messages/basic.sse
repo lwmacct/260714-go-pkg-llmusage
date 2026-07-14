@@ -1,0 +1,12 @@
+event: message_start
+data: {"type":"message_start","message":{"id":"msg_stream","type":"message","model":"claude-sonnet-4-5","usage":{"input_tokens":12,"output_tokens":0,"cache_read_input_tokens":7,"cache_creation_input_tokens":3,"cache_creation":{"ephemeral_5m_input_tokens":2}}}}
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":null},"usage":{"output_tokens":4}}
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":9,"server_tool_use":{"web_search_requests":1}}}
+
+event: message_stop
+data: {"type":"message_stop"}
+

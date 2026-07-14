@@ -1,0 +1,14 @@
+{
+  "id": "chatcmpl_basic",
+  "object": "chat.completion",
+  "model": "gpt-5.4",
+  "choices": [{"message": {"role": "assistant", "content": "ignored"}}],
+  "usage": {
+    "prompt_tokens": 82,
+    "completion_tokens": 17,
+    "total_tokens": 99,
+    "prompt_tokens_details": {"cached_tokens": 32, "audio_tokens": 0},
+    "completion_tokens_details": {"reasoning_tokens": 8},
+    "provider_extension": {"cost": 0.01}
+  }
+}

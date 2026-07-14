@@ -25,7 +25,9 @@ func normalizeOptions(options Options) (Options, error) {
 	if options.Protocol == "" || options.Format == "" {
 		return options, &ParseError{Protocol: options.Protocol, Format: options.Format, Stage: "options", Err: ErrInvalidOptions}
 	}
-	if options.Protocol != ProtocolOpenAIResponses {
+	switch options.Protocol {
+	case ProtocolAuto, ProtocolOpenAIResponses, ProtocolOpenAIChatCompletions, ProtocolAnthropicMessages, ProtocolGoogleGenerateContent:
+	default:
 		return options, &ParseError{Protocol: options.Protocol, Format: options.Format, Stage: "options", Err: ErrUnsupported}
 	}
 	if options.Format != FormatJSON && options.Format != FormatSSE {

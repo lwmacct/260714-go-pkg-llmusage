@@ -24,7 +24,7 @@ type openAIOutputDetails struct {
 	ReasoningTokens json.RawMessage `json:"reasoning_tokens"`
 }
 
-func resultFromFields(protocol Protocol, fields map[string]json.RawMessage, sequence uint64) (Result, bool, error) {
+func resultFromOpenAIResponses(fields map[string]json.RawMessage, sequence uint64) (Result, bool, error) {
 	rawUsage, exists := fields["usage"]
 	if !exists || bytes.Equal(bytes.TrimSpace(rawUsage), []byte("null")) {
 		return Result{}, false, nil
@@ -87,7 +87,7 @@ func resultFromFields(protocol Protocol, fields map[string]json.RawMessage, sequ
 		}
 	}
 	return Result{
-		Protocol:    protocol,
+		Protocol:    ProtocolOpenAIResponses,
 		ResponseID:  rawString(fields["id"]),
 		Model:       rawString(fields["model"]),
 		Usage:       usage,

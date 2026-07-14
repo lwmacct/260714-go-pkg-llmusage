@@ -89,8 +89,8 @@ func TestDecoderLifecycleAndOptions(t *testing.T) {
 	if _, err := NewDecoder(Options{}); !errors.Is(err, ErrInvalidOptions) {
 		t.Fatalf("expected invalid options, got %v", err)
 	}
-	if _, err := NewDecoder(Options{Protocol: ProtocolAuto, Format: FormatSSE}); !errors.Is(err, ErrUnsupported) {
-		t.Fatalf("expected unsupported auto protocol in v0.1, got %v", err)
+	if _, err := NewDecoder(Options{Protocol: ProtocolAuto, Format: FormatSSE}); err != nil {
+		t.Fatalf("expected auto protocol support, got %v", err)
 	}
 	decoder, err := NewDecoder(Options{Protocol: ProtocolOpenAIResponses, Format: FormatJSON})
 	if err != nil {

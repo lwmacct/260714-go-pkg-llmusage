@@ -1,0 +1,14 @@
+{
+  "id": "msg_basic",
+  "type": "message",
+  "model": "claude-sonnet-4-5",
+  "content": [{"type": "text", "text": "ignored"}],
+  "usage": {
+    "input_tokens": 25,
+    "output_tokens": 15,
+    "cache_read_input_tokens": 10,
+    "cache_creation_input_tokens": 5,
+    "cache_creation": {"ephemeral_5m_input_tokens": 3, "ephemeral_1h_input_tokens": 2},
+    "server_tool_use": {"web_search_requests": 1}
+  }
+}

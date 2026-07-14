@@ -1,0 +1,4 @@
+data: {"responseId":"google_stream","modelVersion":"gemini-2.5-pro","candidates":[{"content":{"parts":[{"text":"ignored"}]}}],"usageMetadata":{"promptTokenCount":20,"candidatesTokenCount":3,"totalTokenCount":24,"cachedContentTokenCount":4,"thoughtsTokenCount":1}}
+
+data: {"responseId":"google_stream","modelVersion":"gemini-2.5-pro","candidates":[{"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":20,"candidatesTokenCount":8,"totalTokenCount":31,"cachedContentTokenCount":4,"thoughtsTokenCount":3,"candidatesTokensDetails":[{"modality":"TEXT","tokenCount":8}]}}
+

@@ -66,7 +66,8 @@ func TestScannerRejectsMalformedSkippedValues(t *testing.T) {
 		`{"skip":-.1,"usage":{"total":3}}`,
 		`{"skip":"bad\q","usage":{"total":3}}`,
 		`{"skip":"bad\u12xz","usage":{"total":3}}`,
-		"{\"skip\":\"bad\nvalue\",\"usage\":{\"total\":3}}",
+		`{"skip":"bad
+value","usage":{"total":3}}`,
 		`{"skip":[1,],"usage":{"total":3}}`,
 		`{"skip":[1 2],"usage":{"total":3}}`,
 		`{"skip":{"a":1,},"usage":{"total":3}}`,

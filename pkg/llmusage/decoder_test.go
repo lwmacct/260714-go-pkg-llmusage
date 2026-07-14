@@ -161,9 +161,15 @@ func TestParseRejectsInvalidUsageNumbers(t *testing.T) {
 }
 
 func TestDecoderEmitsMultipleCompletedEventsWithWireSequence(t *testing.T) {
-	stream := []byte("event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"usage\":null}}\n\n" +
-		"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"one\",\"usage\":{\"input_tokens\":1,\"output_tokens\":2,\"total_tokens\":3}}}\n\n" +
-		"event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"two\",\"usage\":{\"input_tokens\":4,\"output_tokens\":5,\"total_tokens\":9}}}\n\n")
+	stream := []byte(`event: response.created
+data: {"type":"response.created","response":{"usage":null}}
+
+data: {"type":"response.completed","response":{"id":"one","usage":{"input_tokens":1,"output_tokens":2,"total_tokens":3}}}
+
+event: response.completed
+data: {"type":"response.completed","response":{"id":"two","usage":{"input_tokens":4,"output_tokens":5,"total_tokens":9}}}
+
+`)
 	results, err := Parse(stream, Options{Protocol: ProtocolOpenAIResponses, Format: FormatSSE})
 	if err != nil {
 		t.Fatal(err)
@@ -191,7 +197,8 @@ func TestDecoderLimitsRetainedUsageButSkipsLargeOutput(t *testing.T) {
 }
 
 func TestDecoderAcceptsSSEFieldOrderAndEOFWithoutBlankLine(t *testing.T) {
-	stream := []byte("data: {\"type\":\"response.completed\",\"response\":{\"id\":\"ordered\",\"usage\":{\"input_tokens\":1,\"output_tokens\":1,\"total_tokens\":2}}}\nevent: response.completed")
+	stream := []byte(`data: {"type":"response.completed","response":{"id":"ordered","usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}
+event: response.completed`)
 	results, err := Parse(stream, Options{Protocol: ProtocolOpenAIResponses, Format: FormatSSE})
 	if err != nil || len(results) != 1 || results[0].ResponseID != "ordered" {
 		t.Fatalf("unexpected EOF result: results=%#v err=%v", results, err)
@@ -203,8 +210,10 @@ func TestDecoderRecognizesCompletedTypeAfterResponseLimit(t *testing.T) {
 	for index := range large {
 		large[index] = 'x'
 	}
-	stream := append([]byte("data: {\"response\":{\"usage\":{\"unknown\":\""), large...)
-	stream = append(stream, []byte("\"}},\"type\":\"response.completed\"}\n\n")...)
+	stream := append([]byte(`data: {"response":{"usage":{"unknown":"`), large...)
+	stream = append(stream, []byte(`"}},"type":"response.completed"}
+
+`)...)
 	_, err := Parse(stream, Options{Protocol: ProtocolOpenAIResponses, Format: FormatSSE, MaxSSEMetadataBytes: 1024, MaxResultBytes: 64})
 	if !errors.Is(err, ErrLimitExceeded) {
 		t.Fatalf("completed type after oversized usage should preserve error, got %v", err)
@@ -212,7 +221,10 @@ func TestDecoderRecognizesCompletedTypeAfterResponseLimit(t *testing.T) {
 }
 
 func TestDecoderSharesResultBudgetAcrossSSEScanners(t *testing.T) {
-	stream := []byte("event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"usage\":{\"input_tokens\":1}}}\n\n")
+	stream := []byte(`event: response.completed
+data: {"type":"response.completed","response":{"usage":{"input_tokens":1}}}
+
+`)
 	retainedBytes := len(`"response.completed"`) + len(`{"input_tokens":1}`)
 	_, err := Parse(stream, Options{Protocol: ProtocolOpenAIResponses, Format: FormatSSE, MaxResultBytes: retainedBytes - 1})
 	if !errors.Is(err, ErrLimitExceeded) {
@@ -221,7 +233,9 @@ func TestDecoderSharesResultBudgetAcrossSSEScanners(t *testing.T) {
 }
 
 func TestDecoderRejectsMalformedTargetEventWithoutEventField(t *testing.T) {
-	stream := []byte("data: {\"type\":\"response.completed\",\"response\":{\"usage\":{\"input_tokens\":1,}}}\n\n")
+	stream := []byte(`data: {"type":"response.completed","response":{"usage":{"input_tokens":1,}}}
+
+`)
 	_, err := Parse(stream, Options{Protocol: ProtocolOpenAIResponses, Format: FormatSSE})
 	if !errors.Is(err, ErrMalformedStream) {
 		t.Fatalf("expected malformed completed event, got %v", err)
@@ -280,8 +294,13 @@ func readFixture(t *testing.T, name string) []byte {
 }
 
 func FuzzDecoder(f *testing.F) {
-	f.Add([]byte("event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"usage\":{\"input_tokens\":1,\"output_tokens\":2,\"total_tokens\":3}}}\n\n"), uint8(7))
-	f.Add([]byte("data: {}\n\n"), uint8(1))
+	f.Add([]byte(`event: response.completed
+data: {"type":"response.completed","response":{"usage":{"input_tokens":1,"output_tokens":2,"total_tokens":3}}}
+
+`), uint8(7))
+	f.Add([]byte(`data: {}
+
+`), uint8(1))
 	f.Fuzz(func(t *testing.T, data []byte, chunkSize uint8) {
 		if len(data) > 1<<16 {
 			t.Skip()
@@ -307,8 +326,11 @@ func BenchmarkDecoderOpenAIResponsesSSELargeOutput(b *testing.B) {
 	for index := range large {
 		large[index] = 'x'
 	}
-	stream := append([]byte("event: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"bench\",\"output\":\""), large...)
-	stream = append(stream, []byte("\",\"usage\":{\"input_tokens\":1,\"output_tokens\":2,\"total_tokens\":3}}}\n\n")...)
+	stream := append([]byte(`event: response.completed
+data: {"type":"response.completed","response":{"id":"bench","output":"`), large...)
+	stream = append(stream, []byte(`","usage":{"input_tokens":1,"output_tokens":2,"total_tokens":3}}}
+
+`)...)
 	b.ReportAllocs()
 	b.SetBytes(int64(len(stream)))
 	b.ResetTimer()

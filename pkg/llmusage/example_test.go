@@ -35,7 +35,9 @@ func ExampleDecoder() {
 
 	chunks := [][]byte{
 		[]byte("event: response.completed\n"),
-		[]byte("data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_stream\",\"usage\":{\"input_tokens\":2,\"output_tokens\":3,\"total_tokens\":5}}}\n\n"),
+		[]byte(`data: {"type":"response.completed","response":{"id":"resp_stream","usage":{"input_tokens":2,"output_tokens":3,"total_tokens":5}}}
+
+`),
 	}
 	for _, chunk := range chunks {
 		results, feedErr := decoder.Feed(chunk)

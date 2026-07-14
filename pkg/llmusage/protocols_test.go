@@ -112,7 +112,9 @@ func TestProtocolAuto(t *testing.T) {
 	for _, input := range []struct {
 		format Format
 		data   string
-	}{{FormatJSON, `{}`}, {FormatSSE, "data: {}\n\n"}} {
+	}{{FormatJSON, `{}`}, {FormatSSE, `data: {}
+
+`}} {
 		if _, err := Parse([]byte(input.data), Options{Protocol: ProtocolAuto, Format: input.format}); !errors.Is(err, ErrUnsupported) {
 			t.Fatalf("expected unsupported auto payload, got %v", err)
 		}
@@ -120,17 +122,34 @@ func TestProtocolAuto(t *testing.T) {
 }
 
 func TestProtocolSpecificSemantics(t *testing.T) {
-	results, err := Parse([]byte("data: {\"id\":\"x\",\"object\":\"chat.completion.chunk\",\"usage\":null}\n\ndata: [DONE]\n\n"), Options{Protocol: ProtocolOpenAIChatCompletions, Format: FormatSSE})
+	results, err := Parse([]byte(`data: {"id":"x","object":"chat.completion.chunk","usage":null}
+
+data: [DONE]
+
+`), Options{Protocol: ProtocolOpenAIChatCompletions, Format: FormatSSE})
 	if err != nil || len(results) != 0 {
 		t.Fatalf("chat without final usage: results=%#v err=%v", results, err)
 	}
 
-	results, err = Parse([]byte("event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"m\",\"model\":\"c\",\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"usage\":{\"output_tokens\":2}}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"usage\":{\"output_tokens\":3}}\n\n"), Options{Protocol: ProtocolAnthropicMessages, Format: FormatSSE})
+	results, err = Parse([]byte(`event: message_start
+data: {"type":"message_start","message":{"id":"m","model":"c","usage":{"input_tokens":1,"output_tokens":0}}}
+
+event: message_delta
+data: {"type":"message_delta","usage":{"output_tokens":2}}
+
+event: message_delta
+data: {"type":"message_delta","usage":{"output_tokens":3}}
+
+`), Options{Protocol: ProtocolAnthropicMessages, Format: FormatSSE})
 	if err != nil || len(results) != 1 || results[0].Usage.OutputTokens != 3 {
 		t.Fatalf("anthropic cumulative merge: %#v %v", results, err)
 	}
 
-	results, err = Parse([]byte("data: {\"usageMetadata\":{\"promptTokenCount\":1,\"candidatesTokenCount\":2,\"totalTokenCount\":3}}\n\ndata: {\"usageMetadata\":{\"promptTokenCount\":4,\"candidatesTokenCount\":5,\"totalTokenCount\":9}}\n\n"), Options{Protocol: ProtocolGoogleGenerateContent, Format: FormatSSE})
+	results, err = Parse([]byte(`data: {"usageMetadata":{"promptTokenCount":1,"candidatesTokenCount":2,"totalTokenCount":3}}
+
+data: {"usageMetadata":{"promptTokenCount":4,"candidatesTokenCount":5,"totalTokenCount":9}}
+
+`), Options{Protocol: ProtocolGoogleGenerateContent, Format: FormatSSE})
 	if err != nil || len(results) != 1 || results[0].Usage.TotalTokens != 9 {
 		t.Fatalf("google latest snapshot: %#v %v", results, err)
 	}
@@ -139,7 +158,10 @@ func TestProtocolSpecificSemantics(t *testing.T) {
 func TestUnknownSSEEventsAreIgnored(t *testing.T) {
 	tests := []Protocol{ProtocolOpenAIResponses, ProtocolOpenAIChatCompletions, ProtocolAnthropicMessages, ProtocolGoogleGenerateContent}
 	for _, protocol := range tests {
-		results, err := Parse([]byte("event: future.event\ndata: not-json\n\n"), Options{Protocol: protocol, Format: FormatSSE})
+		results, err := Parse([]byte(`event: future.event
+data: not-json
+
+`), Options{Protocol: protocol, Format: FormatSSE})
 		if err != nil || len(results) != 0 {
 			t.Fatalf("%s unknown event: results=%#v err=%v", protocol, results, err)
 		}
@@ -242,8 +264,12 @@ func TestProtocolAutoIgnoresForeignInvalidUsage(t *testing.T) {
 }
 
 func TestProtocolAutoDoesNotSelectAnthropicFromWeakEvents(t *testing.T) {
-	stream := []byte("event: ping\ndata: {\"type\":\"ping\"}\n\n" +
-		"data: {\"id\":\"chatcmpl_auto\",\"object\":\"chat.completion.chunk\",\"model\":\"gpt-5.4\",\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":2,\"total_tokens\":3}}\n\n")
+	stream := []byte(`event: ping
+data: {"type":"ping"}
+
+data: {"id":"chatcmpl_auto","object":"chat.completion.chunk","model":"gpt-5.4","usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}
+
+`)
 	results, err := Parse(stream, Options{Protocol: ProtocolAuto, Format: FormatSSE})
 	if err != nil {
 		t.Fatal(err)
@@ -254,9 +280,16 @@ func TestProtocolAutoDoesNotSelectAnthropicFromWeakEvents(t *testing.T) {
 }
 
 func TestDoneIsProtocolSpecific(t *testing.T) {
-	stream := []byte("event: future.event\ndata: [DONE]\n\n" +
-		"event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"m\",\"model\":\"c\",\"usage\":{\"input_tokens\":1}}}\n\n" +
-		"event: message_delta\ndata: {\"type\":\"message_delta\",\"usage\":{\"output_tokens\":2}}\n\n")
+	stream := []byte(`event: future.event
+data: [DONE]
+
+event: message_start
+data: {"type":"message_start","message":{"id":"m","model":"c","usage":{"input_tokens":1}}}
+
+event: message_delta
+data: {"type":"message_delta","usage":{"output_tokens":2}}
+
+`)
 	results, err := Parse(stream, Options{Protocol: ProtocolAnthropicMessages, Format: FormatSSE})
 	if err != nil {
 		t.Fatal(err)
@@ -267,8 +300,13 @@ func TestDoneIsProtocolSpecific(t *testing.T) {
 }
 
 func TestMergedAnthropicUsageHonorsResultLimit(t *testing.T) {
-	stream := []byte("event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"m\",\"model\":\"c\",\"usage\":{\"input_tokens\":1}}}\n\n" +
-		"event: message_delta\ndata: {\"type\":\"message_delta\",\"usage\":{\"output_tokens\":2,\"extension\":\"abcdefghijklmnopqrstuvwxyz\"}}\n\n")
+	stream := []byte(`event: message_start
+data: {"type":"message_start","message":{"id":"m","model":"c","usage":{"input_tokens":1}}}
+
+event: message_delta
+data: {"type":"message_delta","usage":{"output_tokens":2,"extension":"abcdefghijklmnopqrstuvwxyz"}}
+
+`)
 	_, err := Parse(stream, Options{Protocol: ProtocolAnthropicMessages, Format: FormatSSE, MaxResultBytes: 48})
 	if !errors.Is(err, ErrLimitExceeded) {
 		t.Fatalf("expected merged usage limit, got %v", err)
@@ -277,7 +315,9 @@ func TestMergedAnthropicUsageHonorsResultLimit(t *testing.T) {
 
 func FuzzProtocolAuto(f *testing.F) {
 	f.Add([]byte(`{"object":"chat.completion","usage":null}`), uint8(0))
-	f.Add([]byte("data: {\"usageMetadata\":{\"totalTokenCount\":1}}\n\n"), uint8(1))
+	f.Add([]byte(`data: {"usageMetadata":{"totalTokenCount":1}}
+
+`), uint8(1))
 	f.Fuzz(func(t *testing.T, data []byte, formatByte uint8) {
 		if len(data) > 1<<16 {
 			t.Skip()
